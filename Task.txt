@@ -1,0 +1,12 @@
+# Login
+    Make a simple login page:
+    - email 
+    - password 
+
+# Signup
+    Simple Sign up page:
+    - name
+    - phone 
+    - email 
+    - password 
+    - confirm password 
