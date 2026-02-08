@@ -3,6 +3,10 @@
     include "../db.php";
     session_start();
 
+    $error = $_SESSION['error'] ?? '';
+    $success = $_SESSION['success'] ?? '';
+    unset($_SESSION['error'], $_SESSION['success']);
+
     if (!isset($_SESSION['U_ID']) || $_SESSION['Role'] !== 'Teacher') {
         header("Location: ../Auth/login.php");
         exit;
@@ -35,6 +39,25 @@
     $enrolled_sections = $stmt->get_result();
     $stmt->close();
 
+    $sql3 = "
+        SELECT 
+            r.Request_Type,
+            r.Request_Data,
+            r.Status,
+            cs.C_Code,
+            cs.Section_Name
+        FROM requests r
+        JOIN course_schedule cs ON r.S_ID = cs.S_ID
+        WHERE r.U_ID = ?
+        ORDER BY r.Created_At DESC
+    ";
+
+    $stmt = $connection->prepare($sql3);
+    $stmt->bind_param("i", $teacher_id);
+    $stmt->execute();
+    $teacher_requests = $stmt->get_result();
+    $stmt->close();
+
     $connection->close();
 
 ?>
@@ -60,9 +83,27 @@
         <button onclick="window.location.href='../Auth/logout.php'" class="logout-btn">Logout</button>
     </div>
 
-    <div class="section">
+    <div id="toast-container" class="toast-container"></div>
+
+    <?php if (!empty($error)): ?>
+        <script>
+            window.onload = () => {
+                showToast("<?= addslashes($error) ?>", "error");
+            };
+        </script>
+    <?php endif; ?>
+
+    <?php if (!empty($success)): ?>
+        <script>
+            window.onload = () => {
+                showToast("<?= addslashes($success) ?>", "success");
+            };
+        </script>
+    <?php endif; ?>
+
+    <div class="section" id="availableCourses">
         <div class="section-header">
-            <h2>Enrolled Courses</h2>
+            <h2>Available Courses</h2>
         </div>
         <div class="courses">
             <?php while ($course = $available_sections->fetch_assoc()): ?>
@@ -100,7 +141,7 @@
         </div>
     </div>
 
-    <div class="section">
+    <div class="section" id="weeklyTimetable">
         <div class="section-header">
             <h2>Weekly Timetable</h2>
         </div>
@@ -114,6 +155,7 @@
                     <th>Start Time</th>
                     <th>End Time</th>
                     <th>Room</th>
+                    <th>Request Change</th>
                 </tr>
                 <?php while($row = $enrolled_sections->fetch_assoc()): ?>
                 <tr>
@@ -124,8 +166,72 @@
                     <td><?= $row['Start_Time'] ?></td>
                     <td><?= $row['End_Time'] ?></td>
                     <td><?= $row['Room'] ?></td>
+                    <td>
+                        <button 
+                            class="modal-btn"
+                            data-modal="teacherRequest"
+                            data-sid="<?= $row['S_ID'] ?>"
+                            data-day="<?= $row['Day'] ?>"
+                            data-start="<?= $row['Start_Time'] ?>"
+                            data-end="<?= $row['End_Time'] ?>">
+                            Request Change
+                        </button>
+                    </td>
                 </tr>
                 <?php endwhile; ?>
+            </table>
+        </div>
+    </div>
+
+    <div class="section" id="requests">
+        <div class="section-header">
+            <h2>My Requests</h2>
+        </div>
+
+        <div class="timetable">
+            <table>
+                <tr>
+                    <th>Course</th>
+                    <th>Section</th>
+                    <th>Request Type</th>
+                    <th>Request Data</th>
+                    <th>Status</th>
+                </tr>
+
+                <?php if ($teacher_requests->num_rows > 0): ?>
+                    <?php while ($req = $teacher_requests->fetch_assoc()): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($req['C_Code']) ?></td>
+                        <td><?= htmlspecialchars($req['Section_Name']) ?></td>
+                        <td><?= str_replace('_', ' ', $req['Request_Type']) ?></td>
+                        <td>
+                            <?php
+                            if ($req['Request_Data']) {
+                                $data = json_decode($req['Request_Data'], true);
+
+                                if (isset($data['Day'])) {
+                                    echo htmlspecialchars($data['Day']) . " | ";
+                                }
+                                if (isset($data['Start'], $data['End'])) {
+                                    echo htmlspecialchars($data['Start']) . " - " . htmlspecialchars($data['End']);
+                                }
+                            } else {
+                                echo "-";
+                            }
+                            ?>
+                        </td>
+                        <td>
+                            <span class="status <?= strtolower($req['Status']) ?>">
+                                <?= $req['Status'] ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="5">No requests submitted yet.</td>
+                    </tr>
+                <?php endif; ?>
             </table>
         </div>
     </div>
@@ -133,63 +239,130 @@
 </div>
 
 <!-- Make-up Class Modal -->
-<div class="modal" id="enroll_course">
+<div class="modal" id="teacherRequest">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Add a Teacher</h3>
-            <p>Create a new teacher profile for the academic semester.</p>
+            <h3>Submit a Request</h3>
+            <p>Request changes to a section you are assigned to.</p>
         </div>
 
-        <?php if (!empty($error)): ?>
-            <div class="alert error-alert">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                <span><?php echo $error; ?></span>
-            </div>
-        <?php elseif (!empty($success)): ?>
-            <div class="alert success-alert">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span><?php echo $success; ?></span>
-            </div>
-        <?php endif; ?>
+        <form action="requestTeacher.php" method="POST" class="styled-form">
 
-        <form action="createTeacher.php" method="POST" class="styled-form">
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Name</label>
-                    <input type="text" name="name" placeholder="e.g. John Doe" required>
-                </div>
-                <div class="form-group">
-                    <label>Phone</label>
-                    <input type="number" name="phone" placeholder="e.g. 1234567890" required>
-                </div>
-            </div>
+            <input type="hidden" name="S_ID" id="requestSectionId">
 
             <div class="form-group">
-                <label>Email</label>
-                <input type="text" name="email" placeholder="e.g. john.doe@example.com" required>
+                <label>Request Type</label>
+                <select name="request_type" id="teacherRequestType" required>
+                    <option value="" disabled selected>Select type...</option>
+                    <option value="Drop_Section">Drop Section</option>
+                    <option value="Change_Section_Time">Change Time</option>
+                    <option value="Change_Section_Day">Change Day & Time</option>
+                </select>
             </div>
 
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" name="password" placeholder="Enter a secure password" required>
+            <div class="form-row" id="teacherTimeChange" style="display:none;">
+                <div id="teacherDay" class="form-group">
+                    <label>New Day</label>
+                    <select name="new_day" id="newDay">
+                        <option>Monday</option>
+                        <option>Tuesday</option>
+                        <option>Wednesday</option>
+                        <option>Thursday</option>
+                        <option>Friday</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>New Start Time</label>
+                    <input type="time" name="new_start" id="newStart">
+                </div>
+                <div class="form-group">
+                    <label>New End Time</label>
+                    <input type="time" name="new_end" id="newEnd">
+                </div>
             </div>
 
-            <button type="submit" class="submit-btn">Register Teacher</button>
+            <button type="submit" class="submit-btn">Submit Request</button>
         </form>
     </div>
 </div>
 
 <script>
-    const modalButtons = document.querySelectorAll('.enroll_course');
-    const modal = document.getElementById('enroll_course');
+    document.addEventListener("click", e => {
 
-    modalButtons.forEach(btn => {
-        btn.addEventListener('click', () => modal.classList.add('active'));
+        const activeModal = document.querySelector(".modal.active");
+
+        const btn = e.target.closest(".modal-btn");
+
+        if (btn) {
+            const modal = document.getElementById(btn.dataset.modal);
+            modal.classList.add("active");
+
+            document.getElementById("requestSectionId").value = btn.dataset.sid;
+            document.getElementById("newDay").value = btn.dataset.day;
+            document.getElementById("newStart").value = btn.dataset.start;
+            document.getElementById("newEnd").value = btn.dataset.end;
+
+            return;
+        }
+
+        if (
+            activeModal &&
+            !activeModal.querySelector(".modal-content").contains(e.target)
+        ) {
+            activeModal.classList.remove("active");
+        }
     });
 
-    modal.addEventListener('click', e => {
-        if(e.target === modal) modal.classList.remove('active');
+    document.getElementById("teacherRequestType")
+        .addEventListener("change", e => {
+
+            const box = document.getElementById("teacherTimeChange");
+            const day = document.getElementById("teacherDay");
+
+            if (
+                e.target.value === "Change_Section_Time" ||
+                e.target.value === "Change_Section_Day"
+            ) {
+                box.style.display = "grid";
+            } else {
+                box.style.display = "none";
+            }
+
+            day.style.display =
+                e.target.value === "Change_Section_Day" ? "flex" : "none";
+        });
+
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape") {
+            const modal = document.querySelector(".modal.active");
+            if (modal) modal.classList.remove("active");
+        }
     });
+
+    function showToast(message, type = "success") {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        
+        // Choose icon based on type
+        const icon = type === "success" ? "✅" : "❌";
+        
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <span class="toast-icon">${icon}</span>
+            <span class="toast-message">${message}</span>
+        `;
+        
+        container.appendChild(toast);
+        
+        // Trigger animation
+        setTimeout(() => toast.classList.add('active'), 100);
+        
+        // Auto-remove after 4 seconds
+        setTimeout(() => {
+            toast.classList.remove('active');
+            setTimeout(() => toast.remove(), 400);
+        }, 4000);
+    }
 </script>
 
 </body>

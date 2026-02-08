@@ -140,6 +140,35 @@ button:hover {
     opacity: 0.7;
 }
 
+/* Action Buttons in Table */
+.edit-btn,
+.delete-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    margin-right: 5px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.edit-btn {
+    background: #2c61b6;
+    color: white;
+}
+
+.edit-btn:hover {
+    background: #25649c;
+}
+
+.delete-btn {
+    background: #ff4444;
+    color: white;
+}
+
+.delete-btn:hover {
+    background: #e60000;
+}
+
 /* Courses */
 .courses {
     display: grid;
@@ -199,7 +228,7 @@ button:hover {
     color: var(--text-muted) !important;
     margin-bottom: 24px;
     display: -webkit-box;
-    -webkit-line-clamp: 2; /* Limits description to 2 lines */
+    line-clamp: 2; /* Limits description to 2 lines */
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -248,6 +277,29 @@ th {
 
 td {
     background: rgba(255,255,255,0.02);
+}
+
+.status {
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status.pending {
+    background: rgba(241, 196, 15, 0.15);
+    color: #f1c40f;
+}
+
+.status.approved {
+    background: rgba(46, 204, 113, 0.15);
+    color: #2ecc71;
+}
+
+.status.declined {
+    background: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
 }
 
 /* Make-up Class Modal */
@@ -394,4 +446,49 @@ select {
     .sidebar {
         display: none;
     }
+}
+
+/* --- Toast Notifications --- */
+.toast-container {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 9999;
+}
+
+.toast {
+    min-width: 300px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: rgba(18, 24, 38, 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-light);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.toast.active {
+    transform: translateX(0);
+}
+
+.toast.success {
+    border-left: 4px solid var(--green);
+}
+
+.toast.error {
+    border-left: 4px solid #e74c3c;
+}
+
+.toast-icon {
+    font-size: 18px;
 }

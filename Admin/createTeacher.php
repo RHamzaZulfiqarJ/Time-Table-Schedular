@@ -8,38 +8,46 @@ if (!isset($_SESSION['U_ID']) || $_SESSION['Role'] !== 'Admin') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $_SESSION['error'] = "Invalid request.";
     header("Location: Dashboard.php");
     exit;
 }
 
-$name = trim($_POST['name']);
-$phone = trim($_POST['phone']);
-$email = trim($_POST['email']);
-$password = trim($_POST['password']);
+$name = trim($_POST['name'] ?? '');
+$phone = trim($_POST['phone'] ?? '');
+$email = trim($_POST['email'] ?? '');
+$password = trim($_POST['password'] ?? '');
 
 if ($name === "" || $phone === "" || $email === "" || $password === "") {
-    die("All fields are required");
+    $_SESSION['error'] = "All fields are required.";
+    $connection->close();
+    header("Location: Dashboard.php");
+    exit;
 }
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    die("Invalid email");
+    $_SESSION['error'] = "Invalid email address.";
+    $connection->close();
+    header("Location: Dashboard.php");
+    exit;
 }
 
 $role = "Teacher";
 
 $stmt = $connection->prepare(
-    "INSERT INTO user (Name, Phone, Email, Role, Password)
-     VALUES (?, ?, ?, ?, ?)"
+    "INSERT INTO user (Name, Phone, Email, Role, Password) VALUES (?, ?, ?, ?, ?)"
 );
 
 $stmt->bind_param("sssss", $name, $phone, $email, $role, $password);
 
 if (!$stmt->execute()) {
-    if ($connection->errno == 1062) {
-        die("Email already exists");
+    if ($connection->errno == 1062) { // Duplicate email
+        $_SESSION['error'] = "Email already exists.";
     } else {
-        die("Failed to create teacher");
+        $_SESSION['error'] = "Failed to create teacher.";
     }
+} else {
+    $_SESSION['success'] = "Teacher created successfully.";
 }
 
 $stmt->close();
